@@ -8,11 +8,12 @@
 
 import Cocoa
 
-class MainWindowController: NSWindowController, NSSpeechSynthesizerDelegate, NSWindowDelegate {
+class MainWindowController: NSWindowController, NSSpeechSynthesizerDelegate, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate {
     
     @IBOutlet weak var textField: NSTextField!
     @IBOutlet weak var speakButton: NSButton!
     @IBOutlet weak var stopButton: NSButton!
+    @IBOutlet weak var tableView: NSTableView!
     
     let speechSynth = NSSpeechSynthesizer()
     
@@ -34,6 +35,13 @@ class MainWindowController: NSWindowController, NSSpeechSynthesizerDelegate, NSW
         // Note that NSSpeechSynthesizer's delegate is not defined as a strong reference. This is true of all delegate properties and
         // prevents a strong reference cycle from occuring between the delegate and object with the delegate.
         speechSynth.delegate = self
+        
+        let defaultVoice = NSSpeechSynthesizer.defaultVoice
+        if let defaultRow = voices.firstIndex(of: defaultVoice) {
+            let indices = NSIndexSet(index: defaultRow)
+            tableView.selectRowIndexes(indices as IndexSet, byExtendingSelection: false)
+            tableView.scrollRowToVisible(defaultRow)
+        }
     }
     
     override var windowNibName: NSNib.Name {
@@ -61,9 +69,41 @@ class MainWindowController: NSWindowController, NSSpeechSynthesizerDelegate, NSW
         return !isStarted
     }
     
+    // MARK: - NSTableViewDataSource
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        return voices.count
+    }
+    
+    func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
+        let voice = voices[row]
+        let voiceName = voiceNameForIdentifier(identifier: voice)
+        
+        return voiceName
+    }
+    
+    // MARK: - NSTableViewDelegate
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        let row = tableView.selectedRow
+        
+        // Set the voice back to the default if the user has deselected all rows
+        if row == -1 {
+            speechSynth.setVoice(nil)
+            return
+        }
+        
+        let voice = voices[row]
+        speechSynth.setVoice(voice)
+    }
+    
     func speechSynthesizer(_ sender: NSSpeechSynthesizer, didFinishSpeaking finishedSpeaking: Bool) {
         isStarted = false
         print("finishedSpeaking = \(finishedSpeaking)")
+    }
+    
+    func voiceNameForIdentifier(identifier: NSSpeechSynthesizer.VoiceName) -> String? {
+        let attributes = NSSpeechSynthesizer.attributes(forVoice: identifier)
+        
+        return attributes[NSSpeechSynthesizer.VoiceAttributeKey.name] as? String
     }
     
     
